@@ -42,6 +42,13 @@ BODY_CY = -240  # vertical centre of the tab body relative to the feet, at s=1
 CLOSE_BTN = (104, -362)  # centre of the close button relative to the feet, at s=1
 
 
+def close_button_pos(x, y, s=1.0, tilt=0.0, bob=0.0):
+    """Screen position of the close button of a character drawn by draw_char with these arguments."""
+    px, py = CLOSE_BTN[0], CLOSE_BTN[1] - BODY_CY
+    ca, sa = math.cos(tilt), math.sin(tilt)
+    return x + s * (px * ca - py * sa), y + s * (px * sa + py * ca + BODY_CY - bob)
+
+
 def pose_default():
     return dict(look=(0.0, 0.0), blink=0.0, mouth=0.0, expr='happy', arm_l=0.15, arm_r=-0.15,
                 wave=0.0, bob=0.0, tilt=0.0, squash=0.0, walk=0.0, gray=0.0, brow=0.0,
@@ -490,7 +497,11 @@ def draw_restorer(c, x, y, s=1.0, t=0.0, glow=1.0, eyes=1.0, arm=0.0, alpha=1.0,
     c.rotate(-0.2 - arm * 1.1)
     rrect(c, -26, 0, 52, 240, 24)
     fill_stroke(c, coat, ink, 6)
-    gfx.cursor(c, -10, 230, 4.2, 'arrow', 1.0, fill='#f5f5f5')
+    # held by the tail: the stem sits in the hand and the tip points away from him
+    c.translate(-10, 230)
+    c.rotate(PI)
+    cs = 4.2
+    gfx.cursor(c, -gfx.ARROW_TAIL[0] * cs, -gfx.ARROW_TAIL[1] * cs, cs, 'arrow', 1.0, fill='#f5f5f5')
     c.restore()
     # head: restore ring
     hx, hy = 0, -700

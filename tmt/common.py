@@ -116,17 +116,22 @@ def credit(c, actor, role, t_since, x=110, y=870, align='l', col_role='#ffe14d',
                  alpha=a2)
         cx = rx - rw / 2
     if closed > 0:
+        size = 150
+        hw = gfx.text_width(c, 'CLOSED', size, 'Impact') / 2 + 40
+        hh = size * 0.62
+        # keep the whole stamp on screen; credit coordinates are scaled by `scale` around x
+        scx = min(max(cx, (40 - x) / scale + hw), (W - 40 - x) / scale - hw)
+        a = min(1, closed * 4)
         c.save()
-        c.translate(cx, 64)
+        c.translate(scx, 64)
         c.rotate(-0.12)
-        sc = 1 + 1.5 * (1 - ease_out(min(1, closed * 4)))
+        sc = 1 + 1.5 * (1 - ease_out(a))
         c.scale(sc, sc)
-        rrect(c, -170, -52, 340, 104, 12)
-        src(c, (0.85, 0.05, 0.1, 0.9 * min(1, closed * 4)))
-        c.set_line_width(10)
+        rrect(c, -hw, -hh, 2 * hw, 2 * hh, 16)
+        src(c, (0.85, 0.05, 0.1, 0.9 * a))
+        c.set_line_width(14)
         c.stroke()
-        text(c, 'CLOSED', 0, 0, 84, 'Impact', col=(0.85, 0.05, 0.1, 1), align='c', valign='mid',
-             alpha=min(1, closed * 4))
+        text(c, 'CLOSED', 0, 0, size, 'Impact', col=(0.85, 0.05, 0.1, 1), align='c', valign='mid', alpha=a)
         c.restore()
     c.restore()
 
