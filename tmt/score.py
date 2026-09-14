@@ -202,16 +202,28 @@ while _tt < 7.9:
     _i += 1
 CLOSE_CLICKS_COLD = (5.15, 5.65, 6.05)
 
+# ---------------------------------------------------------------- episode one: each click doubles the tabs
+# (seconds from the start of the episode section)
+EPISODE_CLICKS = (3.0, 4.2)
+EPISODE_SPLIT_DELAY = 0.05
+EPISODE_LAUGHS = ((4.95, 1.6), (7.0, 1.0))
+
 # ---------------------------------------------------------------- spoken lines (absolute seconds)
 # (time, voice, rate, text, semitones, fx)
 DIALOG = [
     (1.5, 'zira', 0, "Okay. I'll just check one thing.", 0, 'room'),
     (4.3, 'david', -2, "It started... with one tab.", -3, 'announcer'),
-    (40.25, 'david', -1, "Episode one. Just one more.", -3, 'announcer'),
-    (41.7, 'david', 1, "Okay. I am closing ONE tab.", 0, 'room'),
-    (44.05, 'zira', 2, "Hi!", 7, 'room'),
-    (44.1, 'zira', 2, "Hi!", 4, 'room'),
-    (46.0, 'david', 0, "Oh, come on.", 0, 'room'),
+    (40.05, 'david', 0, "Episode one.", -3, 'announcer'),
+    (41.3, 'david', 3, "Okay. Closing one tab.", 0, 'room'),
+    # first click: one tab becomes two
+    (43.3, 'zira', 3, "Hi!", 7, 'room'),
+    (43.36, 'zira', 3, "Hi!", 4, 'room'),
+    # second click: two tabs become four
+    (44.5, 'zira', 3, "Hi!", 9, 'room'),
+    (44.57, 'zira', 3, "Hi!", 5, 'room'),
+    (44.64, 'zira', 3, "Hi!", 12, 'room'),
+    (44.71, 'zira', 3, "Hi!", 7, 'room'),
+    (46.15, 'david', 1, "Oh, come on.", 0, 'room'),
     (84.1, 'david', 0, "Captain's log. We have four thousand tabs open. Morale is low.", -1, 'radio'),
     (89.9, 'zira', -1, "Warning. Memory critical.", -2, 'robot'),
     (92.3, 'david', 2, "Close them! Close them all!", 0, 'radio'),

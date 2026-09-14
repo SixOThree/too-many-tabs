@@ -1,6 +1,8 @@
 """Season 1 and Season 2 of the looping sitcom intro."""
 import math
 
+import cairo
+
 from .util import PI, TAU, clamp, lerp, smooth, ease_out, ease_out_back, ease_in, hrand, hsign, bounce
 from . import gfx, cast
 from .gfx import OUTLINE, src, rrect, circle, text
@@ -125,7 +127,17 @@ def props_forum(c, u, layer, cx):
         src(c, '#6a4a2a'); c.set_line_width(20); c.stroke()
         rrect(c, -180, -80, 360, 160, 12)
         gfx.fill_stroke(c, '#fff4d0', OUTLINE, 6)
-        text(c, '✓ SOLVED', 0, -20, 50, 'Impact', col='#1e9e4a', align='c', valign='mid')
+        # Impact has no check glyph, so draw the tick
+        sw, _ = text(c, 'SOLVED', 30, -20, 50, 'Impact', col='#1e9e4a', align='c', valign='mid')
+        kx = 30 - sw / 2 - 58
+        c.move_to(kx, -22)
+        c.line_to(kx + 16, -6)
+        c.line_to(kx + 44, -40)
+        src(c, '#1e9e4a')
+        c.set_line_width(10)
+        c.set_line_cap(cairo.LINE_CAP_ROUND)
+        c.set_line_join(cairo.LINE_JOIN_ROUND)
+        c.stroke()
         text(c, '"nvm fixed it"', 0, 40, 40, 'Comic Sans MS', col='#333', align='c', valign='mid')
         c.restore()
     else:

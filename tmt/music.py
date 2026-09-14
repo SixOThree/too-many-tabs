@@ -355,11 +355,15 @@ def sec_episode(mx):
         mx.add('bass', S.bass_pluck(m, 0.11, 1.0, 1.5), t0 + i * 0.09, 0.9)
     for n in (62, 66, 69, 73):
         mx.add('keys', S.epiano(n, 0.9, 0.9), t0 + 0.54, 0.6)
-    mx.add('sfx', S.sfx_click(1.0), t0 + 3.2)
-    mx.add('sfx', S.sfx_pop(1.3, 0.8), t0 + 3.35)
-    mx.add('sfx', S.sfx_pop(1.6, 0.8), t0 + 3.52)
-    mx.add('sfx', laugh_track(2.0, 1, 0.9), t0 + 4.45)
-    mx.add('sfx', laugh_track(1.4, 2, 0.7), t0 + 6.7)
+    # each click doubles the tabs: one pop per new tab
+    for n_click, ct in enumerate(SC.EPISODE_CLICKS):
+        mx.add('sfx', S.sfx_click(1.0), t0 + ct)
+        born = 2 ** n_click
+        for k in range(born):
+            mx.add('sfx', S.sfx_pop(1.3 + 0.3 * k + 0.1 * n_click, 0.8), t0 + ct + SC.EPISODE_SPLIT_DELAY + k * 0.06,
+                   1.0, -0.4 + 0.8 * k / max(1, born - 1) if born > 1 else 0.0)
+    for i, (lt, dur) in enumerate(SC.EPISODE_LAUGHS):
+        mx.add('sfx', laugh_track(dur, i + 1, 0.9 - 0.2 * i), t0 + lt)
     # theme sneaks back early
     play_line(mx, 'brass', S.brass, "x/A4 x/B4 x/C#5", t0 + 7.25, 1, 0.8)
     mx.add('drums', KIT.toms[0], t0 + 7.25, 0.6)
