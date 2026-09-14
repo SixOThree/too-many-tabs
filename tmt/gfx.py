@@ -398,6 +398,12 @@ def favicon(c, kind, cx, cy, size, t=0.0, col=None, bg=True):
 
 # ---------------------------------------------------------------- UI bits
 
+# cursor anchor points in cursor units (the origin is the hotspot)
+ARROW_TAIL = (18.25, 39.75)  # end of the arrow's stem
+HAND_TIP = (0.5, -2.0)       # top of the pointing finger
+HAND_WRIST = (13.0, 48.0)    # bottom centre of the palm
+
+
 def cursor(c, x, y, s=1.0, kind='arrow', alpha=1.0, fill='#ffffff'):
     c.save()
     c.translate(x, y)
@@ -567,6 +573,18 @@ def browser_window(c, x, y, w, h, tabs, t=0.0, active=0, url='about:blank', cont
     c.stroke()
 
 
+def dialog_buttons(w, h, n):
+    """(x, y, w, h) of each dialog button, relative to the dialog centre at scale 1."""
+    bw = min(230, (w - 60 - (n - 1) * 20) / max(1, n))
+    bx0 = w / 2 - 30 - n * bw - (n - 1) * 20
+    return [(bx0 + i * (bw + 20), h / 2 - 92, bw, 62) for i in range(n)]
+
+
+def dialog_button_center(cx, cy, w, h, n, i, scale=1.0):
+    bx, by, bw, bh = dialog_buttons(w, h, n)[i]
+    return cx + (bx + bw / 2) * scale, cy + (by + bh / 2) * scale
+
+
 def dialog(c, cx, cy, w, h, title, body, buttons, t=0.0, hot=-1, press=0.0, alpha=1.0, scale=1.0):
     c.save()
     c.translate(cx, cy)
@@ -583,11 +601,7 @@ def dialog(c, cx, cy, w, h, title, body, buttons, t=0.0, hot=-1, press=0.0, alph
     for i, ln in enumerate(lines):
         text(c, ln, x + 42, y + 150 + i * 42, 30, 'Segoe UI', col='#3b4152', alpha=alpha, max_w=w - 84)
     n = len(buttons)
-    bw = min(230, (w - 60 - (n - 1) * 20) / max(1, n))
-    bx0 = x + w - 30 - n * bw - (n - 1) * 20
-    for i, b in enumerate(buttons):
-        bx = bx0 + i * (bw + 20)
-        by = y + h - 92
+    for i, (b, (bx, by, bw, _bh)) in enumerate(zip(buttons, dialog_buttons(w, h, n))):
         pr = press if i == hot else 0.0
         primary = i == n - 1
         rrect(c, bx, by + pr * 4, bw, 62, 31)

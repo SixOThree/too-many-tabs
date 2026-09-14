@@ -395,7 +395,7 @@ def draw_space(c, lt, t, fx):
         for i in range(14):
             ph = (u * 0.35 + i / 14) % 1
             r = lerp(900, 60, ph ** 1.5)
-            a = -t * 1.5 + i * 2.2
+            a = t * 1.5 + i * 2.2  # increasing angle turns clockwise on screen; ships face along the path
             tab_ship(c, W / 2 + math.cos(a) * r, H / 2 + math.sin(a) * r * 0.6, 0.6 * (1 - ph) + 0.05, t + i,
                      TAB_COLS[i % len(TAB_COLS)], FAVS[(i + 3) % len(FAVS)], a + PI / 2)
         text(c, 'LOADING...', W / 2, H / 2 + 20, 70, 'Impact', col='#ffffff', align='c', valign='mid', alpha=0.9)
@@ -771,10 +771,12 @@ def horror_closes(c, u, t, fx):
     bd = spec['backdrop']
     gfx.backdrop(c, bd[0], gfx.mix(bd[1], '#050308', 0.75), gfx.mix(bd[2], '#0a0610', 0.75), u)
     gray = clamp(v / 0.08)
-    cast.draw_char(c, key, 1250, 1000, 1.05, t, expr='dead', gray=gray, tilt=0.2 * gray * hsign(k, 3),
-                   arm_l=0.2, arm_r=0.2)
+    tilt = 0.2 * gray * hsign(k, 3)
+    cast.draw_char(c, key, 1250, 1000, 1.05, t, expr='dead', gray=gray, tilt=tilt, arm_l=0.2, arm_r=0.2)
     credit(c, spec['actor'], spec['role'], 0.6, 110, 860, 'l', closed=v, scale=0.9)
-    gfx.cursor(c, lerp(1500, 1350, clamp(v / 0.05)), lerp(200, 330, clamp(v / 0.05)), 5.0, 'arrow')
+    # the cursor tip lands on the close button and follows it as the tab keels over
+    bx, by = cast.close_button_pos(1250, 1000, 1.05, tilt)
+    gfx.cursor(c, lerp(1500, bx, clamp(v / 0.05)), lerp(200, by, clamp(v / 0.05)), 5.0, 'arrow')
     text(c, f'TABS: {7 - k}', W - 60, 110, 90, 'Chiller', bold=True, col='#ff3040', align='r')
     if v < 0.1:
         fx.add('flash', amt=0.6 * (1 - v / 0.1), col=(255, 20, 30))
@@ -794,17 +796,33 @@ def horror_restore(c, u, t, fx):
         gfx.dialog(c, W / 2 + 120, 480, 900, 380, 'Restore pages?',
                    "Your tabs didn't close correctly.\nRestore all of them?", ['Cancel', 'Restore'], t, hot, press,
                    scale=sc)
-        hx = lerp(2300, 1190, ease_out(clamp((u - 1.2) / 1.0)))
-        hy = lerp(-200, 600, ease_out(clamp((u - 1.2) / 1.0)))
-        if 2.45 <= u < 2.6:
-            hy += 20
+        # the Restorer's arm reaches in from the upper right; the hand points down the arm and the
+        # fingertip lands on the Restore button
+        bx, by = gfx.dialog_button_center(W / 2 + 120, 480, 900, 380, 2, 1, sc)
+        k = ease_out(clamp((u - 1.2) / 1.0))
+        fx_, fy_ = lerp(2300, bx, k), lerp(-200, by + 4 * press, k)
+        arm_ang = -0.5
+        point = arm_ang + PI
+        if press:
+            fx_, fy_ = fx_ + math.cos(point) * 8, fy_ + math.sin(point) * 8
+        hs = 3.0
+        tip = gfx.HAND_TIP
+        rel = (gfx.HAND_WRIST[0] - tip[0], gfx.HAND_WRIST[1] - tip[1])
+        spin = point - math.atan2(-rel[1], -rel[0])
+        cs_, sn_ = math.cos(spin), math.sin(spin)
+        wx_ = fx_ + hs * (rel[0] * cs_ - rel[1] * sn_)
+        wy_ = fy_ + hs * (rel[0] * sn_ + rel[1] * cs_)
         c.save()
-        c.translate(hx, hy)
-        c.rotate(-0.5)
-        rrect(c, 20, -40, 900, 90, 40)
+        c.translate(wx_, wy_)
+        c.rotate(arm_ang)
+        rrect(c, -30, -45, 1100, 90, 40)
         gfx.fill_stroke(c, '#34323f', OUTLINE, 6)
         c.restore()
-        gfx.cursor(c, hx, hy, 3.0, 'hand')
+        c.save()
+        c.translate(fx_, fy_)
+        c.rotate(spin)
+        gfx.cursor(c, -tip[0] * hs, -tip[1] * hs, hs, 'hand')
+        c.restore()
     if u >= 2.5:
         v = u - 2.5
         n = min(900, int((v * 12) ** 2))
@@ -1144,7 +1162,7 @@ def draw_epilogue(c, lt, t, fx):
         couch_front(c)
         c.restore()
         # the cursor tip lands on the tab's close button; follow the slow push-in so it stays there
-        bx, by = 960 + cast.CLOSE_BTN[0] * 0.7, 780 + cast.CLOSE_BTN[1] * 0.7
+        bx, by = cast.close_button_pos(960, 780, 0.7)
         tx, ty = W / 2 + (bx - W / 2) * push, H / 2 + (by - H / 2) * push
         k = ease_out(clamp((lt - 3.0) / 3.5))
         press = 3.0 if 8.0 <= lt < 8.12 else 0.0
