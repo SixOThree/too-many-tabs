@@ -39,6 +39,7 @@ ALL = ORDER1 + ORDER2
 
 
 BODY_CY = -240  # vertical centre of the tab body relative to the feet, at s=1
+CLOSE_BTN = (104, -362)  # centre of the close button relative to the feet, at s=1
 
 
 def pose_default():
@@ -119,7 +120,7 @@ def draw_char(c, key, x, y, s=1.0, t=0.0, **kw):
         fill_stroke(c, _c('#ff2d2d', g), ink, 4)
         text(c, str(spec['badge']), -70, top + 31, 24 if len(str(spec['badge'])) < 3 else 15, 'Arial Black',
              col='#ffffff', align='c', valign='mid')
-    gfx.close_x(c, 104, top + 58, 15, (1, 1, 1, 1) if dark else ink, 6, p['close_hover'])
+    gfx.close_x(c, CLOSE_BTN[0], CLOSE_BTN[1], 15, (1, 1, 1, 1) if dark else ink, 6, p['close_hover'])
     # title strip
     rrect(c, -122, top + 268, 244, 50, 14)
     src(c, (1, 1, 1, 0.8) if not dark else (0, 0, 0, 0.55))
