@@ -936,9 +936,9 @@ def draw_finale(c, lt, t, fx):
             r = 420 + 60 * math.sin(t * 3 + i)
             c.save()
             c.translate(W / 2 + math.cos(a) * r * 1.4, H / 2 + math.sin(a) * r * 0.8 + 150)
-            c.rotate(a * 1.5)
-            cast.draw_char(c, key, 0, 0, 0.36, t + i, mouth=0.9, expr='scream' if lt > 8 else 'happy', arm_l=2.8,
-                           arm_r=2.8, eyes='spiral' if lt > 10 else None)
+            cast.draw_char(c, key, 0, -cast.BODY_CY * 0.36, 0.36, t + i, tilt=a * 1.5, mouth=0.9,
+                           expr='scream' if lt > 8 else 'happy', arm_l=2.8, arm_r=2.8,
+                           eyes='spiral' if lt > 10 else None)
             c.restore()
     if lt >= 8:
         u = lt - 8

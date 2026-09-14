@@ -395,7 +395,8 @@ def cast_intro(c, u, key, fx, t_abs, dur=4.0, side='right', season='s1', extras=
         k = clamp((ud - (fz - 0.35)) / 0.2)
         pose.update(look=(0, 0), mouth=max(pose.get('mouth', 0), 0.55 * k), blush=k, expr=pose.get('expr', 'happy'))
         if key == 'loading':
-            pose['tilt'] = round(pose['tilt'] / TAU) * TAU * 0 + pose['tilt'] * (1 - k)
+            upright = round(pose['tilt'] / TAU) * TAU
+            pose['tilt'] = lerp(pose['tilt'], upright, k)
     if extras:
         extras(c, ud, 'back', cx)
     cast.draw_char(c, key, x, 940, 1.25, ud, walk=walk, **pose)

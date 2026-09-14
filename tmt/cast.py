@@ -38,6 +38,9 @@ ORDER2 = ['forum', 'later', 'localhost', 'justincase']
 ALL = ORDER1 + ORDER2
 
 
+BODY_CY = -240  # vertical centre of the tab body relative to the feet, at s=1
+
+
 def pose_default():
     return dict(look=(0.0, 0.0), blink=0.0, mouth=0.0, expr='happy', arm_l=0.15, arm_r=-0.15,
                 wave=0.0, bob=0.0, tilt=0.0, squash=0.0, walk=0.0, gray=0.0, brow=0.0,
@@ -60,8 +63,11 @@ def draw_char(c, key, x, y, s=1.0, t=0.0, **kw):
     c.save()
     c.translate(x, y)
     c.scale(s, s)
-    c.rotate(p['tilt'])
     c.translate(0, -p['bob'])
+    # tilt pivots on the middle of the tab body, not the feet
+    c.translate(0, BODY_CY)
+    c.rotate(p['tilt'])
+    c.translate(0, -BODY_CY)
     sq = p['squash']
     c.scale(1 + sq * 0.4, 1 - sq * 0.4)
     if a < 1:
