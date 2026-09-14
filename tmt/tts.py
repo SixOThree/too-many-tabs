@@ -22,6 +22,13 @@ def _path(text, voice, rate):
     return os.path.join(CACHE, f'{voice}_{h}.wav')
 
 
+def cached_duration(text, voice='david', rate=0):
+    """Trimmed length in seconds of an already generated clip, or None if it has not been generated yet."""
+    if not os.path.exists(_path(text, voice, rate)):
+        return None
+    return len(load(text, voice, rate)) / float(SR)
+
+
 def request(text, voice='david', rate=0):
     p = _path(text, voice, rate)
     if not os.path.exists(p):

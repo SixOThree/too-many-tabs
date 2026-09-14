@@ -4,7 +4,7 @@ import math
 import cairo
 
 from .util import PI, TAU, clamp, lerp, smooth, ease_out, ease_in, ease_in_out, ease_out_back, hrand, hsign, bounce
-from . import gfx, cast, loop, edits
+from . import gfx, cast, loop, edits, tts
 from .gfx import OUTLINE, src, rrect, circle, ellipse, text
 from .common import (W, H, FX, living_room, couch_back, couch_front, slam_text, credit, talk_mouth, blink_at,
                      random_tabs, mini_tab, FAVS, TAB_COLS, RANDOM_TITLES, sky, tab_cloud)
@@ -28,9 +28,28 @@ def dialog_mouth(t_abs, idx_filter=None, voice=None):
     return 0.0
 
 
+_line_durs = {}
+
+
+def line_duration(start, text_len=12, semis=0, rate=0):
+    """Duration of the DIALOG line starting at `start`, from its generated voice clip when available."""
+    if start not in _line_durs:
+        dur = None
+        for (t0, vc, r, txt, st, _fx) in SC.DIALOG:
+            if abs(t0 - start) < 1e-6:
+                d = tts.cached_duration(txt, vc, r)
+                if d is not None:
+                    dur = d * 2 ** (-st / 12)
+                break
+        _line_durs[start] = dur
+    dur = _line_durs[start]
+    if dur is None:
+        dur = 0.075 * text_len * (2 ** (-semis / 12)) * (1 - rate * 0.06)
+    return dur
+
+
 def spoken(t_abs, start, text_len, semis=0, rate=0):
-    dur = 0.075 * text_len * (2 ** (-semis / 12)) * (1 - rate * 0.06)
-    return talk_mouth(t_abs, start, dur, int(start * 7))
+    return talk_mouth(t_abs, start, line_duration(start, text_len, semis, rate), int(start * 7))
 
 
 # ================================================================ COLD OPEN (0-8)
@@ -45,7 +64,16 @@ def draw_cold_open(c, lt, t, fx):
     if lt < 1.2:
         src(c, '#1030b8')
         c.paint()
-        text(c, 'PLAY ▶', 90, 130, 80, 'Consolas', bold=True, col='#ffffff', shadow=(0, 0, 0, 0.5), soff=(4, 4))
+        pw, _ = text(c, 'PLAY', 90, 130, 80, 'Consolas', bold=True, col='#ffffff', shadow=(0, 0, 0, 0.5), soff=(4, 4))
+        # Consolas has no play glyph, so draw the triangle
+        tx, ty = 90 + pw + 36, 130 - 29
+        for (ox, oy), col in (((4, 4), (0, 0, 0, 0.5)), ((0, 0), '#ffffff')):
+            c.move_to(tx + ox, ty - 26 + oy)
+            c.line_to(tx + 46 + ox, ty + oy)
+            c.line_to(tx + ox, ty + 26 + oy)
+            c.close_path()
+            src(c, col)
+            c.fill()
         text(c, 'SP', 1780, 130, 70, 'Consolas', bold=True, col='#ffffff', align='r')
         text(c, '0:00:0' + str(int(lt)), 1780, 1000, 64, 'Consolas', bold=True, col='#ffffff', align='r')
         if lt < 0.3:
@@ -145,6 +173,8 @@ def draw_episode(c, lt, t, fx):
         text(c, '"Just One More"', W / 2, 600, 80, 'Georgia', col='#ffe9a8', align='c', alpha=a)
         fx.vhs = 0.6
         return
+    click1, click2 = SC.EPISODE_CLICKS
+    split1, split2 = click1 + SC.EPISODE_SPLIT_DELAY, click2 + SC.EPISODE_SPLIT_DELAY
     push = 1.0 + 0.02 * (lt - 1.2) + (0.12 * ease_in((lt - 7.25) / 0.75) if lt > 7.25 else 0)
     c.save()
     c.translate(W / 2, H / 2)
@@ -152,38 +182,65 @@ def draw_episode(c, lt, t, fx):
     c.translate(-W / 2, -H / 2)
     living_room(c, t, 3)
     couch_back(c)
-    split = ease_out_back(clamp((lt - 3.35) / 0.35))
     look_cam = lt > 7.25
-    hi = spoken(t, 44.05, 3, 7, 2)
-    positions = [760] if lt < 3.35 else [760 - 140 * split, 760 + 140 * split]
+    # tabs on the couch: 1, then 2 after the first click, then 4 after the second
+    if lt < split1:
+        positions, hi_starts, target = [960.0], [], 0
+    elif lt < split2:
+        k1 = ease_out_back(clamp((lt - split1) / 0.35))
+        positions, hi_starts, target = [960 - 130 * k1, 960 + 130 * k1], [43.3, 43.36], 1
+    else:
+        k2 = ease_out_back(clamp((lt - split2) / 0.35))
+        left, right = lerp(830, 780, k2), lerp(1090, 1140, k2)
+        positions = [left - 90 * k2, left + 90 * k2, right - 90 * k2, right + 90 * k2]
+        hi_starts, target = [44.5, 44.57, 44.64, 44.71], -1
+    next_click = click1 if lt < split1 else click2
     for i, x in enumerate(positions):
-        look = (0.8, 0) if not look_cam else (0, 0)
-        cast.draw_char(c, 'newtab', x, 780, 0.62, t + i * 0.3, legs=False, mouth=hi if lt > 3.9 else 0.0,
-                       blink=blink_at(t, i + 3), look=look, arm_r=2.6 if 3.9 < lt < 5.2 else 0.4,
-                       wave=1.0 if 3.9 < lt < 5.2 else 0.0, blush=1.0 if lt > 3.9 else 0)
+        hi_t = hi_starts[i] if i < len(hi_starts) else None
+        greeting = hi_t is not None and hi_t - 0.2 < t < hi_t + 0.9
+        hover = clamp(1 - abs(lt - next_click) / 0.35) if i == target else 0.0
+        cast.draw_char(c, 'newtab', x, 780, 0.62, t + i * 0.3, legs=False,
+                       mouth=spoken(t, hi_t, 3, 7, 3) if hi_t is not None else 0.0,
+                       blink=blink_at(t, i + 3), look=(0.8, 0) if not look_cam else (0, 0),
+                       arm_r=2.6 if greeting else 0.4, wave=1.0 if greeting else 0.0,
+                       blush=1.0 if lt > split1 else 0.0, close_hover=hover)
     couch_front(c)
-    # the user
-    ux = 1480
-    lunge = 0.0
-    if 2.9 < lt < 3.45:
-        lunge = math.sin(PI * (lt - 2.9) / 0.55)
-    ux -= lunge * 520
-    m1 = spoken(t, 41.7, 27, 0, 1)
-    m2 = spoken(t, 46.0, 12, 0, 0)
-    expr = 'frown' if 5.9 < lt < 7.25 else 'happy'
-    cast.draw_user(c, ux, 640, 0.9, t, mouth=max(m1, m2), expr=expr if max(m1, m2) < 0.05 else 'talk',
-                   look=(-0.8, 0) if not look_cam else (0, 0), blink=blink_at(t, 9), tilt=-0.15 * lunge)
+    # the user: the cursor tip lands on the close button of the tab it clicks
+    keys = [(0.0, 1480, 640), (click1 - 0.4, 1480, 640), (click1, 1159, 736), (click1 + 0.08, 1159, 740),
+            (click1 + 0.45, 1435, 650), (click2 - 0.35, 1435, 650), (click2, 1289, 736), (click2 + 0.08, 1289, 740),
+            (click2 + 0.5, 1560, 640), (8.0, 1560, 640)]
+    ux, uy = keys[-1][1], keys[-1][2]
+    for (ta, xa, ya), (tb, xb, yb) in zip(keys[:-1], keys[1:]):
+        if ta <= lt <= tb:
+            k = ease_in_out((lt - ta) / max(1e-3, tb - ta))
+            ux, uy = lerp(xa, xb, k), lerp(ya, yb, k)
+            break
+    lean = max(clamp(1 - abs(lt - click1) / 0.4), clamp(1 - abs(lt - click2) / 0.4))
+    talk = max(spoken(t, 41.3, 22, 0, 3), spoken(t, 46.15, 12, 0, 1))
+    upset = (split1 + 0.3 < lt < click2 - 0.3) or (split2 + 0.25 < lt < 7.25)
+    expr = 'talk' if talk >= 0.05 else ('frown' if upset else 'happy')
+    cast.draw_user(c, ux, uy, 0.9, t, mouth=talk, expr=expr, look=(-0.8, 0.1) if not look_cam else (0, 0),
+                   blink=blink_at(t, 9), tilt=-0.08 * lean)
+    for ct in SC.EPISODE_CLICKS:
+        v = lt - ct
+        if 0 <= v < 0.3:
+            circle(c, ux - 135, uy - 180, 14 + v * 260)
+            src(c, (1, 0.2, 0.3, 1 - v / 0.3))
+            c.set_line_width(6)
+            c.stroke()
     c.restore()
     # laugh sign
-    lit = (4.45 < lt < 6.4) or (6.7 < lt < 8.0)
+    (l1, d1), (l2, _d2) = SC.EPISODE_LAUGHS
+    lit = (l1 < lt < l1 + d1 - 0.15) or (l2 < lt < 8.0)
     blink = lit and ((lt * 4) % 1 < 0.7)
     rrect(c, W / 2 - 230, 24, 460, 120, 20)
     gfx.fill_stroke(c, '#2a0a0a', OUTLINE, 6)
     text(c, 'LAUGH', W / 2, 88, 92, 'Impact', col='#ff3030' if blink else '#5a1a1a', align='c', valign='mid')
     if blink:
         gfx.radial_glow(c, W / 2, 84, 320, (1, 0.2, 0.2, 0.35))
-    if 3.2 <= lt < 3.4:
-        fx.add('flash', amt=0.4 * (1 - (lt - 3.2) / 0.2))
+    for sp in (split1, split2):
+        if sp <= lt < sp + 0.2:
+            fx.add('flash', amt=0.35 * (1 - (lt - sp) / 0.2))
     fx.vhs = 0.7
 
 
