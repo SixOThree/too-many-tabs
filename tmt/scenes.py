@@ -54,10 +54,27 @@ def spoken(t_abs, start, text_len, semis=0, rate=0):
 
 # ================================================================ COLD OPEN (0-8)
 
-COLD_TITLES = ['rain gear reviews', 'umbrella history', 'why do clouds float', 'Inbox (1)', 'cloud shaped cats',
-               'is rain wet', 'best umbrella 2026', 'umbrella vs poncho', 'poncho history', 'how to fold a poncho',
+COLD_TITLES = ['rain gear reviews', 'umbrella history', 'why do clouds float', 'cloud shaped cats', 'is rain wet',
+               'Inbox (1)', 'best umbrella 2026', 'umbrella vs poncho', 'poncho history', 'how to fold a poncho',
                'is a poncho a blanket', 'blanket forts', 'fort history', 'Inbox (2)', 'how to close tabs',
                'tabs keep opening help', 'Loading...', 'Loading...', 'Loading...', 'Loading...']
+
+# search results on the page: the three the cursor clicks come first, and each one opens the next tab to pop
+COLD_LINK_X, COLD_LINK_Y0, COLD_LINK_DY, COLD_LINK_SIZE = 870, 350, 110, 42
+
+
+def _cold_links():
+    clicked, used = [], set()
+    for ct in SC.CLOSE_CLICKS_COLD:
+        # each click owns the first tab pop after it that no earlier click has claimed
+        nxt = next(i for i, (pt, _) in enumerate(SC.POP_TIMES_COLD) if pt > ct and i not in used)
+        used.add(nxt)
+        clicked.append(COLD_TITLES[nxt % len(COLD_TITLES)])
+    others = [tl for tl in ('best umbrella 2026', 'umbrella vs poncho', 'poncho history') if tl not in clicked]
+    return clicked + others
+
+
+COLD_LINKS = _cold_links()
 
 
 def draw_cold_open(c, lt, t, fx):
@@ -104,6 +121,45 @@ def draw_cold_open(c, lt, t, fx):
         c.translate(hsign(int(lt * 30), 1) * shake, hsign(int(lt * 30), 2) * shake)
     wx, wy, ww, wh = 90, 60, 1740, 960
 
+    def to_screen(px, py):
+        sdx = hsign(int(lt * 30), 1) * shake if shake else 0.0
+        sdy = hsign(int(lt * 30), 2) * shake if shake else 0.0
+        return W / 2 + (px + sdx - W / 2) * zoom, 90 + (py + sdy - 90) * zoom
+
+    # cursor path: into the search box, then onto each result link it clicks
+    link_boxes = []
+    for i, title in enumerate(COLD_LINKS):
+        base = COLD_LINK_Y0 + i * COLD_LINK_DY
+        lw = gfx.text_width(c, title, COLD_LINK_SIZE, 'Segoe UI')
+        link_boxes.append((COLD_LINK_X, base - 38, COLD_LINK_X + lw, base + 10))
+    keys = [(1.2, 1500, 900), (2.3, 1000, 500), (3.8, 1000, 500), (4.6, 1350, 300)]
+    for i, ct in enumerate(SC.CLOSE_CLICKS_COLD):
+        x0, y0, x1, y1 = link_boxes[i]
+        lx, ly = x0 + min(x1 - x0, 260) * 0.45, (y0 + y1) / 2
+        keys.append((ct - 0.12, lx, ly))
+        keys.append((ct + 0.1, lx, ly))
+    keys.append((7.0, 1200, 700))
+    keys.sort()
+    cx, cy = keys[-1][1], keys[-1][2]
+    if lt < keys[0][0]:
+        cx, cy = keys[0][1], keys[0][2]
+    for (ta, xa, ya), (tb, xb, yb) in zip(keys[:-1], keys[1:]):
+        if ta <= lt <= tb:
+            k = ease_in_out((lt - ta) / max(1e-3, tb - ta))
+            cx, cy = lerp(xa, xb, k), lerp(ya, yb, k)
+            break
+    if lt > 6.2:
+        cx += math.sin(lt * 40) * 60
+        cy += math.cos(lt * 33) * 40
+    hovered = -1
+    if entered:
+        for i, (x0, y0, x1, y1) in enumerate(link_boxes):
+            sx0, sy0 = to_screen(x0, y0)
+            sx1, sy1 = to_screen(x1, y1)
+            if sx0 <= cx <= sx1 and sy0 <= cy <= sy1:
+                hovered = i
+                break
+
     def page(cc, x, y, w, h):
         if not entered:
             text(cc, 'Search', x + w / 2, y + 300, 150, 'Georgia', bold=True, col='#4a6cf7', align='c')
@@ -119,37 +175,22 @@ def draw_cold_open(c, lt, t, fx):
             gfx.favicon(cc, 'weather', x + 180, y + 260, 150, lt, bg=False)
             text(cc, '70%', x + 330, y + 300, 120, 'Segoe UI', bold=True, col='#1a3a7a')
             text(cc, 'chance of rain', x + 330, y + 360, 40, 'Segoe UI', col='#4a5a7a')
-            for i in range(6):
-                text(cc, RANDOM_TITLES[(i * 3 + 2) % len(RANDOM_TITLES)], x + 780, y + 170 + i * 110, 42, 'Segoe UI',
-                     col='#1a0dab')
+            for i, title in enumerate(COLD_LINKS):
+                visited = i < len(SC.CLOSE_CLICKS_COLD) and lt >= SC.CLOSE_CLICKS_COLD[i]
+                x0, y0, x1, y1 = link_boxes[i]
+                base = COLD_LINK_Y0 + i * COLD_LINK_DY
+                text(cc, title, x0, base, COLD_LINK_SIZE, 'Segoe UI', col='#681da8' if visited else '#1a0dab')
+                if i == hovered:
+                    src(cc, '#681da8' if visited else '#1a0dab')
+                    cc.rectangle(x0, base + 6, x1 - x0, 3)
+                    cc.fill()
                 src(cc, '#c9cdd6')
-                cc.rectangle(x + 780, y + 195 + i * 110, 700, 14)
+                cc.rectangle(x0, base + 25, 700, 14)
                 cc.fill()
     gfx.browser_window(c, wx, wy, ww, wh, tabs, lt, 0, 'https://search.example/?q=is+it+going+to+rain' if entered
                        else 'about:newtab', page, chrome_h=120)
     c.restore()
-    # cursor path
-    keys = [(1.2, 1500, 900), (2.3, 1000, 500), (3.8, 1000, 500), (4.6, 700, 140)]
-    for i, ct in enumerate(SC.CLOSE_CLICKS_COLD):
-        n_at = 1 + sum(1 for (pt, _) in SC.POP_TIMES_COLD if pt <= ct)
-        tw = min(260, (ww - 20) / n_at)
-        tx = wx + 10 + 1 * tw + tw - 2 - 66 * 0.8 * 0.42
-        keys.append((ct - 0.12, tx, wy + 38))
-        keys.append((ct + 0.1, tx, wy + 38))
-    keys.append((7.0, 1200, 700))
-    keys.sort()
-    cx, cy = keys[-1][1], keys[-1][2]
-    for (ta, xa, ya), (tb, xb, yb) in zip(keys[:-1], keys[1:]):
-        if ta <= lt <= tb:
-            k = ease_in_out((lt - ta) / max(1e-3, tb - ta))
-            cx, cy = lerp(xa, xb, k), lerp(ya, yb, k)
-            break
-        if lt < keys[0][0]:
-            cx, cy = keys[0][1], keys[0][2]
-    if lt > 6.2:
-        cx += math.sin(lt * 40) * 60
-        cy += math.cos(lt * 33) * 40
-    gfx.cursor(c, cx, cy, 1.6, 'arrow')
+    gfx.cursor(c, cx, cy, 1.6, 'hand' if hovered >= 0 else 'arrow')
     for ct in SC.CLOSE_CLICKS_COLD:
         v = lt - ct
         if 0 <= v < 0.25:
@@ -1093,7 +1134,8 @@ def draw_epilogue(c, lt, t, fx):
             m = spoken(t, 205.2, 10, 6, -2)
             look = (0.7, -0.2) if lt < 6.8 else (0, 0)
             cast.draw_char(c, 'newtab', 960, 780, 0.7, t, legs=False, alpha=1 - gone, mouth=m,
-                           blink=blink_at(t, 2), look=look, blush=0.6 if lt > 6.8 else 0, arm_l=0.3, arm_r=0.3)
+                           blink=blink_at(t, 2), look=look, blush=0.6 if lt > 6.8 else 0, arm_l=0.3, arm_r=0.3,
+                           close_hover=clamp((lt - 6.0) / 0.5) * (1 - gone))
         for i in range(40):
             v = lt - 8.0 - hrand(i, 2) * 0.6
             if 0 < v < 2.0:
@@ -1101,9 +1143,19 @@ def draw_epilogue(c, lt, t, fx):
                             (1, 0.95, 0.7, 1), v)
         couch_front(c)
         c.restore()
-        cx = lerp(2100, 1060, ease_out(clamp((lt - 3.0) / 3.5)))
-        cy = lerp(700, 260, ease_out(clamp((lt - 3.0) / 3.5)))
+        # the cursor tip lands on the tab's close button; follow the slow push-in so it stays there
+        bx, by = 960 + cast.CLOSE_BTN[0] * 0.7, 780 + cast.CLOSE_BTN[1] * 0.7
+        tx, ty = W / 2 + (bx - W / 2) * push, H / 2 + (by - H / 2) * push
+        k = ease_out(clamp((lt - 3.0) / 3.5))
+        press = 3.0 if 8.0 <= lt < 8.12 else 0.0
+        cx, cy = lerp(2100, tx, k), lerp(700, ty, k) + press
         gfx.cursor(c, cx, cy, 2.2, 'arrow', alpha=clamp(1 - (lt - 9.0)))
+        v = lt - 8.0
+        if 0 <= v < 0.3:
+            circle(c, cx, cy, 16 + v * 260)
+            src(c, (1, 0.2, 0.3, 1 - v / 0.3))
+            c.set_line_width(6)
+            c.stroke()
         src(c, (1, 0.6, 0.2, 0.18))
         c.rectangle(0, 0, W, H)
         c.fill()
