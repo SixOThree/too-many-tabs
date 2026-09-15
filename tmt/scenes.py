@@ -1,4 +1,5 @@
 """Scenes for cold open, episode, space, YTP, hamster, horror, recursion, finale, crash, epilogue."""
+import functools
 import math
 
 import cairo
@@ -9,6 +10,7 @@ from .gfx import OUTLINE, src, rrect, circle, ellipse, text
 from .common import (W, H, FX, living_room, couch_back, couch_front, slam_text, credit, talk_mouth, blink_at,
                      random_tabs, mini_tab, FAVS, TAB_COLS, RANDOM_TITLES, sky, tab_cloud)
 from . import score as SC
+from .config import REPO_URL
 
 BAR = 2.0
 
@@ -1117,25 +1119,43 @@ def draw_crash(c, lt, t, fx):
         c.fill()
         return
     a = clamp((lt - 0.6) / 0.25)
-    src(c, gfx.mix('#000000', '#4b2a7b', a))
+    purple = '#4b2a7b'
+    src(c, gfx.mix('#000000', purple, a))
     c.paint()
-    text(c, ':(', 180, 380, 280, 'Segoe UI', col='#ffffff', alpha=a)
-    text(c, 'Your browser ran into a problem because you have too many tabs.', 180, 560, 50, 'Segoe UI',
+    text(c, ':(', 180, 330, 280, 'Segoe UI', col='#ffffff', alpha=a)
+    text(c, 'Your browser ran into a problem because you have too many tabs.', 180, 490, 50, 'Segoe UI',
          col='#ffffff', alpha=a, max_w=1560)
-    text(c, "We're collecting all 4,294,967,296 of them, and then we'll restore every single one.", 180, 630, 50,
+    text(c, "We're collecting all 4,294,967,296 of them, and then we'll restore every single one.", 180, 555, 50,
          'Segoe UI', col='#ffffff', alpha=a, max_w=1560)
     pct = int(100 * clamp((lt - 1.0) / 4.6) ** 1.6)
     pct = min(100, pct - pct % 7 if pct < 100 else 100)
-    text(c, f'{pct}% complete', 180, 740, 50, 'Segoe UI', col='#ffffff', alpha=a)
-    for j in range(15):
-        for i in range(15):
-            if hrand(i, j, 77) > 0.5 or (i < 4 and j < 4) or (i > 10 and j < 4) or (i < 4 and j > 10):
-                c.rectangle(180 + i * 12, 810 + j * 12, 12, 12)
+    text(c, f'{pct}% complete', 180, 640, 50, 'Segoe UI', col='#ffffff', alpha=a)
+    # a real, scannable QR code for the project's repository: dark modules on a white quiet zone
+    rows = repo_qr()
+    module = 8
+    qx, qy = 180, 700
+    size = len(rows) * module
+    c.rectangle(qx, qy, size, size)
     src(c, (1, 1, 1, a))
     c.fill()
-    text(c, 'For more information, close some tabs.', 400, 850, 34, 'Segoe UI', col='#ffffff', alpha=a)
-    text(c, 'Stop code: TOO_MANY_TABS', 400, 920, 34, 'Segoe UI', col='#ffffff', alpha=a)
+    for j, row in enumerate(rows):
+        for i, dark in enumerate(row):
+            if dark:
+                c.rectangle(qx + i * module, qy + j * module, module, module)
+    src(c, purple, a)
+    c.fill()
+    tx = qx + size + 44
+    text(c, 'For more information, close some tabs.', tx, 800, 34, 'Segoe UI', col='#ffffff', alpha=a)
+    text(c, 'Stop code: TOO_MANY_TABS', tx, 870, 34, 'Segoe UI', col='#ffffff', alpha=a)
     fx.vhs = 0.3
+
+
+@functools.lru_cache(maxsize=1)
+def repo_qr():
+    """QR modules for REPO_URL as rows of booleans, including the 4-module quiet zone."""
+    import segno
+    qr = segno.make(REPO_URL, error='q', micro=False)
+    return tuple(tuple(bool(v) for v in row) for row in qr.matrix_iter(scale=1, border=4))
 
 
 # ================================================================ EPILOGUE (198-224)
