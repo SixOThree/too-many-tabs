@@ -505,7 +505,7 @@ def draw_restorer(c, x, y, s=1.0, t=0.0, glow=1.0, eyes=1.0, arm=0.0, alpha=1.0,
     c.restore()
     # head: restore ring
     hx, hy = 0, -700
-    rot = t * 2.2 * spin
+    rot = -t * 2.2 * spin  # turns counterclockwise, so the arrowhead leads
     for i in range(5, 0, -1):
         src(c, (0.18, 0.85, 1.0, 0.07 * glow))
         c.set_line_width(40 + i * 22)

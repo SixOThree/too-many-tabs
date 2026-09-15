@@ -905,7 +905,9 @@ def restorer_closeup(c, u, t, fx):
     src(c, '#000000')
     c.paint()
     z = 3.2 + u * 0.6
-    cast.draw_restorer(c, W / 2, H / 2 + 700 * z, z, t, glow=1.0, spin=3.0 + u * 4, eyes=1.0 + 2.0 * clamp((u - 1.5) / 0.1))
+    # spin speed ramps from 3 to 10 turns of the base rate; pass the accumulated angle, not speed * clock time
+    spin_phase = 3.0 * u + 2.0 * u * u
+    cast.draw_restorer(c, W / 2, H / 2 + 700 * z, z, spin_phase, glow=1.0, eyes=1.0 + 2.0 * clamp((u - 1.5) / 0.1))
     if u > 1.8:
         src(c, '#000000')
         c.paint()
