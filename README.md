@@ -4,6 +4,8 @@ A 3 minute 44 second parody of a sitcom intro that keeps looping, about browser 
 
 The song, lyrics, characters and jokes are all original.
 
+The QR code on the purple crash screen links back to this repository. The address is `REPO_URL` in `tmt/config.py`.
+
 ## Rebuild
 
 ```powershell
