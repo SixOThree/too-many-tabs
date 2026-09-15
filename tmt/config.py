@@ -13,4 +13,4 @@ BPM = 120.0
 BEAT = 60.0 / BPM   # 0.5 s
 BAR = 4 * BEAT      # 2.0 s
 EIGHTH = BEAT / 2
-FPS = 30
+FPS = int(os.environ.get('TMT_FPS', '30'))  # render.py --fps sets this before the tmt modules load
