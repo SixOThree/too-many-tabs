@@ -5,6 +5,7 @@
   python render.py video [--res 1080|4k] [--fps 30|60] [--encoder x264|qsv] [--from A --to B] [--workers N]
   python render.py mux [--res 1080|4k] [--fps 30|60]
   python render.py all [--res 1080|4k] [--fps 30|60]   audio + video + mux into out/
+  python render.py web                   streaming copy of the 1080p master + poster for site/
 """
 import argparse
 import os
@@ -13,7 +14,7 @@ import sys
 
 def main():
     ap = argparse.ArgumentParser()
-    ap.add_argument('cmd', choices=['audio', 'still', 'video', 'all', 'mux'])
+    ap.add_argument('cmd', choices=['audio', 'still', 'video', 'all', 'mux', 'web'])
     ap.add_argument('times', nargs='*', type=float)
     ap.add_argument('--res', default='1080')
     ap.add_argument('--from', dest='t_from', type=float, default=0.0)
@@ -38,6 +39,9 @@ def main():
     if a.cmd in ('mux', 'all'):
         from tmt import video
         video.mux(a.res, a.out)
+    if a.cmd == 'web':
+        from tmt import video
+        video.web()
 
 
 if __name__ == '__main__':
