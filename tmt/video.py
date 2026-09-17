@@ -134,35 +134,55 @@ def stills(times, res='1080'):
         print(p, f'{(time.time() - t0) * 1000:.0f} ms')
 
 
-def _encoder_args(res, out):
+def _tag(res):
+    """'1080', '4k_60fps' ... used in intermediate file names; 30 fps keeps the original names."""
+    return res if FPS == 30 else f'{res}_{FPS}fps'
+
+
+def _encoder_args(res, out, encoder='x264'):
     Wp, Hp = RES[res]
     base = ['ffmpeg', '-y', '-loglevel', 'error', '-f', 'rawvideo', '-pix_fmt', 'bgr0', '-s', f'{Wp}x{Hp}',
             '-r', str(FPS), '-i', '-']
-    if res == '4k':
-        enc = ['-c:v', 'libx264', '-preset', 'fast', '-crf', '16', '-pix_fmt', 'yuv420p']
+    if encoder == 'lossless':
+        # exact RGB, for a render-once intermediate that final encodes are made from
+        enc = ['-c:v', 'libx264rgb', '-preset', 'ultrafast', '-qp', '0', '-pix_fmt', 'bgr24']
+        return base + enc + [out.replace('.mp4', '.mkv') if out.endswith('.mp4') else out]
+    if encoder == 'qsv':
+        # Intel Quick Sync HEVC: frees the CPU for drawing frames, which is the bottleneck at 4K
+        enc = ['-c:v', 'hevc_qsv', '-preset', 'slower', '-global_quality', '18', '-pix_fmt', 'nv12', '-tag:v', 'hvc1']
+    elif res == '4k':
+        # slow preset: the frames are already the bottleneck, and it buys a cleaner master at the same size
+        enc = ['-c:v', 'libx264', '-preset', 'slow', '-crf', '16', '-pix_fmt', 'yuv420p']
     else:
         enc = ['-c:v', 'libx264', '-preset', 'fast', '-crf', '15', '-pix_fmt', 'yuv420p']
     return base + enc + ['-movflags', '+faststart', out]
 
 
-def render(res='1080', t_from=0.0, t_to=None, workers=0, out=None):
+def render(res='1080', t_from=0.0, t_to=None, workers=0, out=None, encoder='x264'):
     t_to = SC.TOTAL if t_to is None else t_to
     f0, f1 = int(round(t_from * FPS)), int(round(t_to * FPS))
-    out = out or os.path.join(BUILD, f'video_{res}.mp4')
+    out = out or os.path.join(BUILD, f'video_{_tag(res)}.mp4')
     workers = workers or max(1, (os.cpu_count() or 4) - 2)
-    print(f'rendering frames {f0}..{f1} at {res} with {workers} workers -> {out}', flush=True)
-    enc = subprocess.Popen(_encoder_args(res, out), stdin=subprocess.PIPE)
+    print(f'rendering frames {f0}..{f1} at {res} {FPS} fps with {workers} workers, {encoder} -> {out}', flush=True)
+    enc = subprocess.Popen(_encoder_args(res, out, encoder), stdin=subprocess.PIPE)
     t0 = time.time()
     ctx = mp.get_context('spawn')
+    # Frames are handed out in small batches so finished frames can never pile up in memory faster than the
+    # encoder takes them (a 4K frame is 33 MB).
+    batch = workers * 3
     with ctx.Pool(workers, initializer=_worker_init, initargs=(res,)) as pool:
         done = 0
-        for i, data in pool.imap(_worker_frame, range(f0, f1), chunksize=2):
-            enc.stdin.write(data)
-            done += 1
-            if done % 150 == 0:
+        next_report = 150
+        for b0 in range(f0, f1, batch):
+            for i, data in pool.map(_worker_frame, range(b0, min(f1, b0 + batch)), chunksize=1):
+                enc.stdin.write(data)
+                done += 1
+            if done >= next_report:
+                next_report += 150
                 el = time.time() - t0
                 rate = done / el
-                print(f'  frame {i} ({i / FPS:.1f}s)  {rate:.1f} fps  eta {(f1 - f0 - done) / rate:.0f}s', flush=True)
+                print(f'  frame {b0 + batch} ({(b0 + batch) / FPS:.1f}s)  {rate:.1f} fps  '
+                      f'eta {(f1 - f0 - done) / rate:.0f}s', flush=True)
     enc.stdin.close()
     enc.wait()
     print(f'video done in {time.time() - t0:.0f}s', flush=True)
@@ -170,12 +190,36 @@ def render(res='1080', t_from=0.0, t_to=None, workers=0, out=None):
 
 
 def mux(res='1080', out=None):
-    vid = os.path.join(BUILD, f'video_{res}.mp4')
+    vid = os.path.join(BUILD, f'video_{_tag(res)}.mp4')
     aud = os.path.join(BUILD, 'soundtrack.wav')
-    name = 'too_many_tabs_4k.mp4' if res == '4k' else f'too_many_tabs_{res}p.mp4'
+    rate = '' if FPS == 30 else str(FPS)
+    name = f'too_many_tabs_4k{rate}.mp4' if res == '4k' else f'too_many_tabs_{res}p{rate}.mp4'
     out = out if (out and out.endswith('.mp4') and 'video_' not in out) else os.path.join(OUT, name)
     cmd = ['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-i', vid, '-i', aud, '-c:v', 'copy', '-c:a', 'aac', '-b:a', '320k',
            '-shortest', '-movflags', '+faststart', out]
     subprocess.run(cmd, check=True)
     print('muxed', out)
+    return out
+
+
+SITE = os.path.join(os.path.dirname(OUT), 'site')
+
+
+def web(poster_t=11.0):
+    """Streaming copy of the 1080p master plus a poster frame, for the one-page site in site/."""
+    src = os.path.join(OUT, 'too_many_tabs_1080p.mp4')
+    out = os.path.join(SITE, 'too_many_tabs.mp4')
+    # The VHS noise is expensive to encode, so the maxrate cap keeps the bitrate streamable; a keyframe every 2 s
+    # makes seeking land quickly.
+    cmd = ['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-i', src,
+           '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-maxrate', '10M', '-bufsize', '20M',
+           '-profile:v', 'high', '-level', '4.1', '-pix_fmt', 'yuv420p', '-g', str(2 * FPS),
+           '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', out]
+    t0 = time.time()
+    subprocess.run(cmd, check=True)
+    print(f'encoded {out} ({os.path.getsize(out) / 1e6:.0f} MB) in {time.time() - t0:.0f}s')
+    poster = os.path.join(SITE, 'poster.jpg')
+    subprocess.run(['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-ss', str(poster_t), '-i', src,
+                    '-frames:v', '1', '-q:v', '3', poster], check=True)
+    print('poster', poster)
     return out

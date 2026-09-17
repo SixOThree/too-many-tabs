@@ -15,9 +15,16 @@ The QR code on the purple crash screen links back to this repository. The addres
 .\.venv\Scripts\python.exe render.py video --res 4k --workers 10     # 3840x2160, same drawing code
 .\.venv\Scripts\python.exe render.py mux --res 4k                    # -> out\too_many_tabs_4k.mp4
 .\.venv\Scripts\python.exe render.py still 12.5 150                  # preview frames -> build\stills
+.\.venv\Scripts\python.exe render.py web                             # streaming copy + poster -> site\
 ```
 
 A partial range renders with `--from` and `--to` (seconds).
+
+## Web page
+
+`site/` is a static page that plays the video filling the browser window. It opens on the title card, and clicking anywhere plays it with sound. Clicking the video pauses it. Space or K also pause and play, F toggles fullscreen, and the left and right arrow keys skip 5 seconds. Clicks never switch to fullscreen.
+
+`render.py web` makes `site/too_many_tabs.mp4` and `site/poster.jpg` from the 1080p master. The MP4 is capped at 10 Mbps, with its index at the front so playback starts before the download finishes. It is gitignored, so upload it along with `index.html` and `poster.jpg` to whatever host serves the page. That host has to support HTTP range requests, or seeking won't work.
 
 ## Layout
 
