@@ -200,3 +200,26 @@ def mux(res='1080', out=None):
     subprocess.run(cmd, check=True)
     print('muxed', out)
     return out
+
+
+SITE = os.path.join(os.path.dirname(OUT), 'site')
+
+
+def web(poster_t=11.0):
+    """Streaming copy of the 1080p master plus a poster frame, for the one-page site in site/."""
+    src = os.path.join(OUT, 'too_many_tabs_1080p.mp4')
+    out = os.path.join(SITE, 'too_many_tabs.mp4')
+    # The VHS noise is expensive to encode, so the maxrate cap keeps the bitrate streamable; a keyframe every 2 s
+    # makes seeking land quickly.
+    cmd = ['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-i', src,
+           '-c:v', 'libx264', '-preset', 'slow', '-crf', '21', '-maxrate', '10M', '-bufsize', '20M',
+           '-profile:v', 'high', '-level', '4.1', '-pix_fmt', 'yuv420p', '-g', str(2 * FPS),
+           '-c:a', 'aac', '-b:a', '192k', '-movflags', '+faststart', out]
+    t0 = time.time()
+    subprocess.run(cmd, check=True)
+    print(f'encoded {out} ({os.path.getsize(out) / 1e6:.0f} MB) in {time.time() - t0:.0f}s')
+    poster = os.path.join(SITE, 'poster.jpg')
+    subprocess.run(['ffmpeg', '-nostdin', '-y', '-loglevel', 'error', '-ss', str(poster_t), '-i', src,
+                    '-frames:v', '1', '-q:v', '3', poster], check=True)
+    print('poster', poster)
+    return out
